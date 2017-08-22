@@ -5,7 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                    http://www.godotengine.org                         */
 /*************************************************************************/
-/* Copyright (c) 2007-2016 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2007-2017 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2017 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -51,6 +52,8 @@ public class GodotLib {
      public static native void step();
      public static native void touch(int what,int pointer,int howmany, int[] arr);
      public static native void accelerometer(float x, float y, float z);
+     public static native void magnetometer(float x, float y, float z);
+     public static native void gyroscope(float x, float y, float z);
 	 public static native void key(int p_scancode, int p_unicode_char, boolean p_pressed);
 	 public static native void joybutton(int p_device, int p_but, boolean p_pressed);
 	 public static native void joyaxis(int p_device, int p_axis, float p_value);

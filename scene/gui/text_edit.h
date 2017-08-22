@@ -5,7 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                    http://www.godotengine.org                         */
 /*************************************************************************/
-/* Copyright (c) 2007-2016 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2007-2017 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2017 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -30,19 +31,18 @@
 #define TEXT_EDIT_H
 
 #include "scene/gui/control.h"
-#include "scene/gui/scroll_bar.h"
 #include "scene/gui/popup_menu.h"
+#include "scene/gui/scroll_bar.h"
 #include "scene/main/timer.h"
 
+class TextEdit : public Control {
 
-class TextEdit : public Control  {
-
-	OBJ_TYPE( TextEdit, Control );
+	GDCLASS(TextEdit, Control);
 
 	struct Cursor {
 		int last_fit_x;
-		int line,column;	    ///< cursor
-		int x_ofs,line_ofs;
+		int line, column; ///< cursor
+		int x_ofs, line_ofs;
 	} cursor;
 
 	struct Selection {
@@ -55,14 +55,13 @@ class TextEdit : public Control  {
 		};
 
 		Mode selecting_mode;
-		int selecting_line,selecting_column;
+		int selecting_line, selecting_column;
 		bool selecting_text;
-
 
 		bool active;
 
-		int from_line,from_column;
-		int to_line,to_column;
+		int from_line, from_column;
+		int to_line, to_column;
 
 		bool shiftclick_left;
 
@@ -74,7 +73,12 @@ class TextEdit : public Control  {
 		Ref<StyleBox> style_normal;
 		Ref<StyleBox> style_focus;
 		Ref<Font> font;
+		Color completion_background_color;
+		Color completion_selected_color;
+		Color completion_existing_color;
+		Color completion_font_color;
 		Color caret_color;
+		Color caret_background_color;
 		Color line_number_color;
 		Color font_color;
 		Color font_selected_color;
@@ -86,12 +90,18 @@ class TextEdit : public Control  {
 		Color mark_color;
 		Color breakpoint_color;
 		Color current_line_color;
+		Color line_length_guideline_color;
 		Color brace_mismatch_color;
 		Color word_highlighted_color;
+		Color search_result_color;
+		Color search_result_border_color;
+		Color symbol_color;
+		Color background_color;
 
 		int row_height;
 		int line_spacing;
 		int line_number_w;
+		int breakpoint_gutter_width;
 		Size2 size;
 	} cache;
 
@@ -102,7 +112,13 @@ class TextEdit : public Control  {
 		String end_key;
 		bool line_only;
 		bool eq;
-		ColorRegion(const String& p_begin_key="",const String& p_end_key="",const Color &p_color=Color(),bool p_line_only=false) { begin_key=p_begin_key; end_key=p_end_key; color=p_color; line_only=p_line_only || p_end_key==""; eq=begin_key==end_key; }
+		ColorRegion(const String &p_begin_key = "", const String &p_end_key = "", const Color &p_color = Color(), bool p_line_only = false) {
+			begin_key = p_begin_key;
+			end_key = p_end_key;
+			color = p_color;
+			line_only = p_line_only || p_end_key == "";
+			eq = begin_key == end_key;
+		}
 	};
 
 	class Text {
@@ -113,43 +129,42 @@ class TextEdit : public Control  {
 			bool end;
 		};
 
-	       struct Line {
-		       int width_cache : 24;
-		       bool marked : 1;
-		       bool breakpoint : 1;
-		       Map<int,ColorRegionInfo> region_info;
-		       String data;
-	       };
-	private:
-	       const Vector<ColorRegion> *color_regions;
-	       mutable Vector<Line> text;
-	       Ref<Font> font;
-	       int tab_size;
+		struct Line {
+			int width_cache : 24;
+			bool marked : 1;
+			bool breakpoint : 1;
+			Map<int, ColorRegionInfo> region_info;
+			String data;
+		};
 
-	       void _update_line_cache(int p_line) const;
+	private:
+		const Vector<ColorRegion> *color_regions;
+		mutable Vector<Line> text;
+		Ref<Font> font;
+		int indent_size;
+
+		void _update_line_cache(int p_line) const;
 
 	public:
-
-
-		void set_tab_size(int p_tab_size);
-		void set_font(const Ref<Font>& p_font);
-		void set_color_regions(const Vector<ColorRegion>*p_regions) { color_regions=p_regions; }
+		void set_indent_size(int p_indent_size);
+		void set_font(const Ref<Font> &p_font);
+		void set_color_regions(const Vector<ColorRegion> *p_regions) { color_regions = p_regions; }
 		int get_line_width(int p_line) const;
 		int get_max_width() const;
-		const Map<int,ColorRegionInfo>& get_color_region_info(int p_line);
-		void set(int p_line,const String& p_string);
-		void set_marked(int p_line,bool p_marked) { text[p_line].marked=p_marked; }
+		const Map<int, ColorRegionInfo> &get_color_region_info(int p_line);
+		void set(int p_line, const String &p_text);
+		void set_marked(int p_line, bool p_marked) { text[p_line].marked = p_marked; }
 		bool is_marked(int p_line) const { return text[p_line].marked; }
-		void set_breakpoint(int p_line,bool p_breakpoint) { text[p_line].breakpoint=p_breakpoint; }
+		void set_breakpoint(int p_line, bool p_breakpoint) { text[p_line].breakpoint = p_breakpoint; }
 		bool is_breakpoint(int p_line) const { return text[p_line].breakpoint; }
-		void insert(int p_at,const String& p_text);
+		void insert(int p_at, const String &p_text);
 		void remove(int p_at);
 		int size() const { return text.size(); }
 		void clear();
 		void clear_caches();
-        _FORCE_INLINE_ const String& operator[](int p_line) const { return text[p_line].data; }
-		Text() { tab_size=4; }
-       };
+		_FORCE_INLINE_ const String &operator[](int p_line) const { return text[p_line].data; }
+		Text() { indent_size = 4; }
+	};
 
 	struct TextOperation {
 
@@ -160,7 +175,7 @@ class TextEdit : public Control  {
 		};
 
 		Type type;
-		int from_line,from_column;
+		int from_line, from_column;
 		int to_line, to_column;
 		String text;
 		uint32_t prev_version;
@@ -169,19 +184,19 @@ class TextEdit : public Control  {
 		bool chain_backward;
 	};
 
+	String ime_text;
+	Point2 ime_selection;
+
 	TextOperation current_op;
 
 	List<TextOperation> undo_stack;
-    List<TextOperation>::Element *undo_stack_pos;
+	List<TextOperation>::Element *undo_stack_pos;
 
 	void _clear_redo();
-	void _do_text_op(const TextOperation& p_op, bool p_reverse);
-
+	void _do_text_op(const TextOperation &p_op, bool p_reverse);
 
 	//syntax coloring
-	Color symbol_color;
-	HashMap<String,Color> keywords;
-	Color custom_bg_color;
+	HashMap<String, Color> keywords;
 
 	Vector<ColorRegion> color_regions;
 
@@ -209,11 +224,15 @@ class TextEdit : public Control  {
 	int max_chars;
 	bool readonly;
 	bool syntax_coloring;
-	int tab_size;
+	bool indent_using_spaces;
+	int indent_size;
+	String space_indent;
 
 	Timer *caret_blink_timer;
 	bool caret_blink_enabled;
 	bool draw_caret;
+	bool window_has_focus;
+	bool block_caret;
 
 	bool setting_row;
 	bool wrap;
@@ -222,6 +241,11 @@ class TextEdit : public Control  {
 	bool text_changed_dirty;
 	bool undo_enabled;
 	bool line_numbers;
+	bool line_numbers_zero_padded;
+	bool line_length_guideline;
+	int line_length_guideline_col;
+	bool draw_breakpoint_gutter;
+	int breakpoint_gutter_width;
 
 	bool highlight_all_occurrences;
 	bool scroll_past_end_of_file_enabled;
@@ -230,6 +254,16 @@ class TextEdit : public Control  {
 	bool auto_indent;
 	bool cut_copy_line;
 	bool insert_mode;
+	bool select_identifiers_enabled;
+
+	bool smooth_scroll_enabled;
+	bool scrolling;
+	float target_v_scroll;
+	float v_scroll_speed;
+
+	bool raised_from_completion;
+
+	String highlighted_word;
 
 	uint64_t last_dblclk;
 
@@ -238,7 +272,6 @@ class TextEdit : public Control  {
 	HScrollBar *h_scroll;
 	VScrollBar *v_scroll;
 	bool updating_scrolls;
-
 
 	Object *tooltip_obj;
 	StringName tooltip_func;
@@ -249,12 +282,19 @@ class TextEdit : public Control  {
 	bool callhint_below;
 	Vector2 callhint_offset;
 
+	String search_text;
+	uint32_t search_flags;
+	int search_result_line;
+	int search_result_col;
+
+	bool context_menu_enabled;
+
 	int get_visible_rows() const;
 
 	int get_char_count();
 
-	int get_char_pos_for(int p_px,String p_pos) const;
-	int get_column_x_offset(int p_column,String p_pos);
+	int get_char_pos_for(int p_px, String p_str) const;
+	int get_column_x_offset(int p_char, String p_str);
 
 	void adjust_viewport_to_cursor();
 	void _scroll_moved(double);
@@ -267,8 +307,10 @@ class TextEdit : public Control  {
 	void _scroll_lines_up();
 	void _scroll_lines_down();
 
-//	void mouse_motion(const Point& p_pos, const Point& p_rel, int p_button_mask);
-	Size2 get_minimum_size();
+	static void _ime_text_callback(void *p_self, String p_text, Point2 p_selection);
+
+	//void mouse_motion(const Point& p_pos, const Point& p_rel, int p_button_mask);
+	Size2 get_minimum_size() const;
 
 	int get_row_height() const;
 
@@ -283,13 +325,13 @@ class TextEdit : public Control  {
 
 	/* super internal api, undo/redo builds on it */
 
-	void _base_insert_text(int p_line, int p_column,const String& p_text,int &r_end_line,int &r_end_column);
-	String _base_get_text(int p_from_line, int p_from_column,int p_to_line,int p_to_column) const;
-	void _base_remove_text(int p_from_line, int p_from_column,int p_to_line,int p_to_column);
+	void _base_insert_text(int p_line, int p_char, const String &p_text, int &r_end_line, int &r_end_column);
+	String _base_get_text(int p_from_line, int p_from_column, int p_to_line, int p_to_column) const;
+	void _base_remove_text(int p_from_line, int p_from_column, int p_to_line, int p_to_column);
 
-	int _get_column_pos_of_word(const String &p_key, const String &p_search, int p_from_column);
+	int _get_column_pos_of_word(const String &p_key, const String &p_search, uint32_t p_search_flags, int p_from_column);
 
-	DVector<int> _search_bind(const String &p_key,uint32_t p_search_flags, int p_from_line,int p_from_column) const;
+	PoolVector<int> _search_bind(const String &p_key, uint32_t p_search_flags, int p_from_line, int p_from_column) const;
 
 	PopupMenu *menu;
 
@@ -299,16 +341,13 @@ class TextEdit : public Control  {
 	void _confirm_completion();
 	void _update_completion_candidates();
 
-	void _get_mouse_pos(const Point2i& p_mouse, int &r_row, int &r_col) const;
-
 protected:
+	virtual String get_tooltip(const Point2 &p_pos) const;
 
-	virtual String get_tooltip(const Point2& p_pos) const;
-
-	void _insert_text(int p_line, int p_column,const String& p_text,int *r_end_line=NULL,int *r_end_char=NULL);
-	void _remove_text(int p_from_line, int p_from_column,int p_to_line,int p_to_column);
-	void _insert_text_at_cursor(const String& p_text);
-	void _input_event(const InputEvent& p_input);
+	void _insert_text(int p_line, int p_char, const String &p_text, int *r_end_line = NULL, int *r_end_char = NULL);
+	void _remove_text(int p_from_line, int p_from_column, int p_to_line, int p_to_column);
+	void _insert_text_at_cursor(const String &p_text);
+	void _gui_input(const Ref<InputEvent> &p_gui_input);
 	void _notification(int p_what);
 
 	void _consume_pair_symbol(CharType ch);
@@ -316,10 +355,7 @@ protected:
 
 	static void _bind_methods();
 
-
-
 public:
-
 	enum MenuItems {
 		MENU_CUT,
 		MENU_COPY,
@@ -333,12 +369,14 @@ public:
 
 	enum SearchFlags {
 
-		SEARCH_MATCH_CASE=1,
-		SEARCH_WHOLE_WORDS=2,
-		SEARCH_BACKWARDS=4
+		SEARCH_MATCH_CASE = 1,
+		SEARCH_WHOLE_WORDS = 2,
+		SEARCH_BACKWARDS = 4
 	};
 
-	virtual CursorShape get_cursor_shape(const Point2& p_pos=Point2i()) const;
+	virtual CursorShape get_cursor_shape(const Point2 &p_pos = Point2i()) const;
+
+	void _get_mouse_pos(const Point2i &p_mouse, int &r_row, int &r_col) const;
 
 	//void delete_char();
 	//void delete_line();
@@ -347,16 +385,16 @@ public:
 	void end_complex_operation();
 
 	void set_text(String p_text);
-	void insert_text_at_cursor(const String& p_text);
-    void insert_at(const String& p_text, int at);
+	void insert_text_at_cursor(const String &p_text);
+	void insert_at(const String &p_text, int at);
 	int get_line_count() const;
-	void set_line_as_marked(int p_line,bool p_marked);
-	void set_line_as_breakpoint(int p_line,bool p_breakpoint);
+	void set_line_as_marked(int p_line, bool p_marked);
+	void set_line_as_breakpoint(int p_line, bool p_breakpoint);
 	bool is_line_set_as_breakpoint(int p_line) const;
 	void get_breakpoints(List<int> *p_breakpoints) const;
 	String get_text();
 	String get_line(int line) const;
-    void set_line(int line, String new_text);
+	void set_line(int line, String new_text);
 	void backspace_at_cursor();
 
 	void indent_selection_left();
@@ -370,7 +408,7 @@ public:
 		auto_brace_completion_enabled = p_enabled;
 	}
 	inline void set_brace_matching(bool p_enabled) {
-		brace_matching_enabled=p_enabled;
+		brace_matching_enabled = p_enabled;
 		update();
 	}
 	inline void set_callhint_settings(bool below, Vector2 offset) {
@@ -379,8 +417,10 @@ public:
 	}
 	void set_auto_indent(bool p_auto_indent);
 
-	void cursor_set_column(int p_col, bool p_adjust_viewport=true);
-	void cursor_set_line(int p_row, bool p_adjust_viewport=true);
+	void center_viewport_to_cursor();
+
+	void cursor_set_column(int p_col, bool p_adjust_viewport = true);
+	void cursor_set_line(int p_row, bool p_adjust_viewport = true);
 
 	int cursor_get_column() const;
 	int cursor_get_line() const;
@@ -390,6 +430,9 @@ public:
 
 	float cursor_get_blink_speed() const;
 	void cursor_set_blink_speed(const float p_speed);
+
+	void cursor_set_block_mode(const bool p_enable);
+	bool cursor_is_block_mode() const;
 
 	void set_readonly(bool p_readonly);
 
@@ -405,36 +448,42 @@ public:
 	void copy();
 	void paste();
 	void select_all();
-	void select(int p_from_line,int p_from_column,int p_to_line,int p_to_column);
+	void select(int p_from_line, int p_from_column, int p_to_line, int p_to_column);
 	void deselect();
 
+	void set_search_text(const String &p_search_text);
+	void set_search_flags(uint32_t p_flags);
+	void set_current_search_result(int line, int col);
+
 	void set_highlight_all_occurrences(const bool p_enabled);
+	bool is_highlight_all_occurrences_enabled() const;
 	bool is_selection_active() const;
 	int get_selection_from_line() const;
-    int get_selection_from_column() const;
+	int get_selection_from_column() const;
 	int get_selection_to_line() const;
 	int get_selection_to_column() const;
 	String get_selection_text() const;
 
 	String get_word_under_cursor() const;
+	String get_word_at_pos(const Vector2 &p_pos) const;
 
-	bool search(const String &p_key,uint32_t p_search_flags, int p_from_line, int p_from_column,int &r_line,int &r_column) const;
+	bool search(const String &p_key, uint32_t p_search_flags, int p_from_line, int p_from_column, int &r_line, int &r_column) const;
 
 	void undo();
 	void redo();
 	void clear_undo_history();
 
-	void set_tab_size(const int p_size);
+	void set_indent_using_spaces(const bool p_use_spaces);
+	bool is_indent_using_spaces() const;
+	void set_indent_size(const int p_size);
 	void set_draw_tabs(bool p_draw);
 	bool is_drawing_tabs() const;
 
 	void set_insert_mode(bool p_enabled);
 	bool is_insert_mode() const;
 
-	void add_keyword_color(const String& p_keyword,const Color& p_color);
-	void add_color_region(const String& p_begin_key=String(),const String& p_end_key=String(),const Color &p_color=Color(),bool p_line_only=false);
-	void set_symbol_color(const Color& p_color);
-	void set_custom_bg_color(const Color& p_color);
+	void add_keyword_color(const String &p_keyword, const Color &p_color);
+	void add_color_region(const String &p_begin_key = String(), const String &p_end_key = String(), const Color &p_color = Color(), bool p_line_only = false);
 	void clear_colors();
 
 	int get_v_scroll() const;
@@ -443,6 +492,12 @@ public:
 	int get_h_scroll() const;
 	void set_h_scroll(int p_scroll);
 
+	void set_smooth_scroll_enabled(bool p_enable);
+	bool is_smooth_scroll_enabled() const;
+
+	void set_v_scroll_speed(float p_speed);
+	float get_v_scroll_speed() const;
+
 	uint32_t get_version() const;
 	uint32_t get_saved_version() const;
 	void tag_saved_version();
@@ -450,22 +505,41 @@ public:
 	void menu_option(int p_option);
 
 	void set_show_line_numbers(bool p_show);
+	bool is_show_line_numbers_enabled() const;
 
-	void set_tooltip_request_func(Object *p_obj, const StringName& p_function, const Variant& p_udata);
+	void set_line_numbers_zero_padded(bool p_zero_padded);
 
-	void set_completion(bool p_enabled,const Vector<String>& p_prefixes);
+	void set_show_line_length_guideline(bool p_show);
+	void set_line_length_guideline_column(int p_column);
+
+	void set_draw_breakpoint_gutter(bool p_draw);
+	bool is_drawing_breakpoint_gutter() const;
+
+	void set_breakpoint_gutter_width(int p_gutter_width);
+	int get_breakpoint_gutter_width() const;
+
+	void set_tooltip_request_func(Object *p_obj, const StringName &p_function, const Variant &p_udata);
+
+	void set_completion(bool p_enabled, const Vector<String> &p_prefixes);
 	void code_complete(const Vector<String> &p_strings);
-	void set_code_hint(const String& p_hint);
+	void set_code_hint(const String &p_hint);
 	void query_code_comple();
 
+	void set_select_identifiers_on_hover(bool p_enable);
+	bool is_selecting_identifiers_on_hover_enabled() const;
+
+	void set_context_menu_enabled(bool p_enable);
 	PopupMenu *get_menu() const;
 
 	String get_text_for_completion();
+	String get_text_for_lookup_completion();
 
-    virtual bool is_text_field() const;
+	virtual bool is_text_field() const;
 	TextEdit();
 	~TextEdit();
 };
 
+VARIANT_ENUM_CAST(TextEdit::MenuItems);
+VARIANT_ENUM_CAST(TextEdit::SearchFlags);
 
 #endif // TEXT_EDIT_H

@@ -5,7 +5,8 @@
 /*                           GODOT ENGINE                                */
 /*                    http://www.godotengine.org                         */
 /*************************************************************************/
-/* Copyright (c) 2007-2016 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2007-2017 Juan Linietsky, Ariel Manzur.                 */
+/* Copyright (c) 2014-2017 Godot Engine contributors (cf. AUTHORS.md)    */
 /*                                                                       */
 /* Permission is hereby granted, free of charge, to any person obtaining */
 /* a copy of this software and associated documentation files (the       */
@@ -115,7 +116,17 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
     private int mState;
 	private boolean keep_screen_on=true;
 
-    private void setState(int newState) {
+	static private Intent mCurrentIntent;
+
+	@Override public void onNewIntent(Intent intent) {
+		mCurrentIntent = intent;
+	}
+
+	static public Intent getCurrentIntent() {
+		return mCurrentIntent;
+	}
+
+	private void setState(int newState) {
         if (mState != newState) {
             mState = newState;
             mStatusText.setText(Helpers.getDownloaderStringResourceIDFromState(newState));
@@ -206,6 +217,8 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 
 	private SensorManager mSensorManager;
 	private Sensor mAccelerometer;
+	private Sensor mMagnetometer;
+	private Sensor mGyroscope;
 
 	public FrameLayout layout;
 	public RelativeLayout adLayout;
@@ -245,8 +258,8 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 
 	public void onVideoInit(boolean use_gl2) {
 
-//		mView = new GodotView(getApplication(),io,use_gl2);
-//		setContentView(mView);
+		//mView = new GodotView(getApplication(),io,use_gl2);
+		//setContentView(mView);
 
 		layout = new FrameLayout(this);
 		layout.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT));
@@ -260,7 +273,7 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 		
 		mView = new GodotView(getApplication(),io,use_gl2,use_32_bits, this);
 		layout.addView(mView,new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT));
-		setKeepScreenOn(GodotLib.getGlobal("display/keep_screen_on").equals("True"));
+		setKeepScreenOn(GodotLib.getGlobal("display/driver/keep_screen_on").equals("True"));
 		
         edittext.setView(mView);
         io.setEdit(edittext);
@@ -282,6 +295,25 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 				}
 			});
 		}
+	}
+
+	public void alert(final String message, final String title) {
+		runOnUiThread(new Runnable() {
+			@Override
+			public void run() {
+				AlertDialog.Builder builder = new AlertDialog.Builder(getInstance());
+				builder.setMessage(message).setTitle(title);
+				builder.setPositiveButton(
+					"OK",
+					new DialogInterface.OnClickListener() {
+						public void onClick(DialogInterface dialog, int id) {
+							dialog.cancel();
+						}
+					});
+				AlertDialog dialog = builder.create();
+				dialog.show();
+			}
+		});
 	}
 	
 	private static Godot _self;
@@ -309,7 +341,7 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
                     r = is.read(len);
                     if (r<4) {
 
-			Log.d("GODOT", "**ERROR** Wrong cmdline param lenght.\n");
+			Log.d("GODOT", "**ERROR** Wrong cmdline param length.\n");
                         return new String[0];
                     }
 		    int strlen=((int)(len[3]&0xFF)<<24) | ((int)(len[2]&0xFF)<<16) | ((int)(len[1]&0xFF)<<8) | ((int)(len[0]&0xFF));
@@ -355,7 +387,7 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 				new_cmdline = new String[ 2 ];
 			}
 
-			new_cmdline[cll]="-main_pack";
+			new_cmdline[cll]="--main_pack";
 			new_cmdline[cll+1]=expansion_pack_path;
 			command_line=new_cmdline;
 		}
@@ -374,6 +406,10 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 		mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+		mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+		mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_GAME);
+		mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+		mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_GAME);
 
 		result_callback = null;
 
@@ -416,9 +452,9 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 			for(int i=0;i<command_line.length;i++) {
 
 				boolean has_extra = i< command_line.length -1;
-				if (command_line[i].equals("-use_depth_32")) {
+				if (command_line[i].equals("--use_depth_32")) {
 					use_32_bits=true;
-				} else if (command_line[i].equals("-use_immersive")) {
+				} else if (command_line[i].equals("--use_immersive")) {
 					use_immersive=true;
 					if(Build.VERSION.SDK_INT >= 19.0){ // check if the application runs on an android 4.4+
 						window.getDecorView().setSystemUiVisibility(
@@ -431,12 +467,12 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 
 						UiChangeListener();
 					}
-				} else if (command_line[i].equals("-use_apk_expansion")) {
+				} else if (command_line[i].equals("--use_apk_expansion")) {
 					use_apk_expansion=true;
-				} else if (has_extra && command_line[i].equals("-apk_expansion_md5")) {
+				} else if (has_extra && command_line[i].equals("--apk_expansion_md5")) {
 					main_pack_md5=command_line[i+1];
 					i++;
-				} else if (has_extra && command_line[i].equals("-apk_expansion_key")) {
+				} else if (has_extra && command_line[i].equals("--apk_expansion_key")) {
 					main_pack_key=command_line[i+1];
 					SharedPreferences prefs = getSharedPreferences("app_data_keys", MODE_PRIVATE);
 					Editor editor = prefs.edit();
@@ -464,7 +500,7 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 
 				// Build the full path to the app's expansion files
 				try {
-					expansion_pack_path = Environment.getExternalStorageDirectory().toString() + "/Android/obb/"+this.getPackageName();
+					expansion_pack_path = Helpers.getSaveFilePath(getApplicationContext());
 					expansion_pack_path+="/"+"main."+getPackageManager().getPackageInfo(getPackageName(), 0).versionCode+"."+this.getPackageName()+".obb";
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -542,10 +578,12 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 			}
 		}
 
+		mCurrentIntent = getIntent();
+
 		initializeGodot();
 
 		
-	//	instanceSingleton( new GodotFacebook(this) );
+		//instanceSingleton( new GodotFacebook(this) );
 
 
 	}
@@ -587,7 +625,9 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 		}
 
 		mView.onResume();
-		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+		mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_GAME);
+		mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_GAME);
 		GodotLib.focusin();
 		if(use_immersive && Build.VERSION.SDK_INT >= 19.0){ // check if the application runs on an android 4.4+
 			Window window = getWindow();
@@ -646,7 +686,17 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 		float x = adjustedValues[0];
 		float y = adjustedValues[1];
 		float z = adjustedValues[2];
-		GodotLib.accelerometer(x,y,z);
+
+		int typeOfSensor = event.sensor.getType();
+		if (typeOfSensor == event.sensor.TYPE_ACCELEROMETER) {
+			GodotLib.accelerometer(x,y,z);
+		}
+		if (typeOfSensor == event.sensor.TYPE_MAGNETIC_FIELD) {
+			GodotLib.magnetometer(x,y,z);
+		}
+		if (typeOfSensor == event.sensor.TYPE_GYROSCOPE) {
+			GodotLib.gyroscope(x,y,z);
+		}
 	}
 
 	@Override public final void onAccuracyChanged(Sensor sensor, int accuracy) {
@@ -672,7 +722,7 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 	@Override public void onBackPressed() {
 
 		System.out.printf("** BACK REQUEST!\n");
-		GodotLib.quit();
+		//GodotLib.back();
 	}
 
 	public void forceQuit() {
@@ -755,9 +805,11 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 			} break;
 			case MotionEvent.ACTION_MOVE: {
 				GodotLib.touch(1,0,evcount,arr);
-				//for(int i=0;i<event.getPointerCount();i++) {
-				//	System.out.printf("%d - moved to: %f,%f\n",i, event.getX(i),event.getY(i));
-				//}
+				/*
+				for(int i=0;i<event.getPointerCount();i++) {
+					System.out.printf("%d - moved to: %f,%f\n",i, event.getX(i),event.getY(i));
+				}
+				*/
 			} break;
 			case MotionEvent.ACTION_POINTER_UP: {
 				final int indexPointUp = event.getActionIndex();
@@ -773,9 +825,11 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 			case MotionEvent.ACTION_CANCEL:
 			case MotionEvent.ACTION_UP: {
 				GodotLib.touch(2,0,evcount,arr);
-				//for(int i=0;i<event.getPointerCount();i++) {
-				//	System.out.printf("%d - up! %f,%f\n",i, event.getX(i),event.getY(i));
-				//}
+				/*
+				for(int i=0;i<event.getPointerCount();i++) {
+					System.out.printf("%d - up! %f,%f\n",i, event.getX(i),event.getY(i));
+				}
+				*/
 			} break;
 
 		}
@@ -817,9 +871,11 @@ public class Godot extends Activity implements SensorEventListener, IDownloaderC
 		return mPaymentsManager;
 	}
 
-//	public void setPaymentsManager(PaymentsManager mPaymentsManager) {
-//		this.mPaymentsManager = mPaymentsManager;
-//	};
+	/*
+	public void setPaymentsManager(PaymentsManager mPaymentsManager) {
+		this.mPaymentsManager = mPaymentsManager;
+	}
+	*/
 
 
 	// Audio

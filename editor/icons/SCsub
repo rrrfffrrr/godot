@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+
+Import('env')
+
+
+def make_editor_icons_action(target, source, env):
+
+    import os
+    import cStringIO
+
+    dst = target[0].srcnode().abspath
+    svg_icons = source
+
+    whites = cStringIO.StringIO()
+    darks = cStringIO.StringIO()
+
+    for f in svg_icons:
+
+        fname = str(f)
+
+        whites.write('\t"')
+        darks.write('\t"')
+
+        with open(fname, 'rb') as svgf:
+            b = svgf.read(1)
+            while(len(b) == 1):
+                whites.write("\\" + str(hex(ord(b)))[1:])
+                b = svgf.read(1)
+        try:
+            with open(os.path.dirname(fname) + "/dark/" + os.path.basename(fname), 'rb') as svgf:
+                b = svgf.read(1)
+                while(len(b) == 1):
+                    darks.write("\\" + str(hex(ord(b)))[1:])
+                    b = svgf.read(1)
+        except IOError:
+            with open(fname, 'rb') as svgf:
+                b = svgf.read(1)
+                while(len(b) == 1):
+                    darks.write("\\" + str(hex(ord(b)))[1:])
+                    b = svgf.read(1)
+
+
+        whites.write('"')
+        darks.write('"')
+        if fname != svg_icons[-1]:
+            whites.write(",")
+            darks.write(",")
+        whites.write('\n')
+        darks.write('\n')
+
+    s = cStringIO.StringIO()
+    s.write("/* THIS FILE IS GENERATED DO NOT EDIT */\n")
+    s.write("#ifndef _EDITOR_ICONS_H\n")
+    s.write("#define _EDITOR_ICONS_H\n")
+    s.write("static const int editor_icons_count = %s;\n" % len(svg_icons))
+    s.write("static const char *editor_icons_sources[] = {\n")
+    s.write(whites.getvalue())
+    s.write('};\n\n')
+    s.write("static const char *editor_icons_sources_dark[] = {\n")
+    s.write(darks.getvalue())
+    s.write('};\n\n')
+    s.write("static const char *editor_icons_names[] = {\n")
+    for f in svg_icons:
+
+        fname = str(f)
+
+        icon_name = os.path.basename(fname)[5:-4].title().replace("_", "")
+
+        s.write('\t"%s"' % icon_name)
+
+        if fname != svg_icons[-1]:
+            s.write(",")
+        s.write('\n')
+    s.write('};\n')
+    s.write("#endif\n")
+
+
+    f = open(dst, "wb")
+    f.write(s.getvalue())
+    f.close()
+    s.close()
+    whites.close()
+    darks.close()
+
+make_editor_icons_builder = Builder(action=make_editor_icons_action,
+                                    suffix='.h',
+                                    src_suffix='.svg')
+env['BUILDERS']['MakeEditorIconsBuilder'] = make_editor_icons_builder
+env.Alias('editor_icons', [env.MakeEditorIconsBuilder('#editor/editor_icons.gen.h', Glob("*.svg"))])
+
+Export('env')

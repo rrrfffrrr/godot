@@ -16,6 +16,7 @@ attribute vec2 uv_in; // attrib:4
 #endif
 attribute vec2 uv2_in; // attrib:5
 
+
 #ifdef USE_CUBEMAP
 varying vec3 cube_interp;
 #else
@@ -58,7 +59,9 @@ float sRGB_gamma_correct(float c){
 #define LUM_RANGE 4.0
 
 
-#ifdef USE_CUBEMAP
+#ifdef USE_ARRAY
+uniform sampler2DArray source;
+#elif defined(USE_CUBEMAP)
 varying vec3 cube_interp;
 uniform samplerCube source_cube;
 #else
@@ -71,6 +74,11 @@ uniform sampler2D source;
 #endif
 varying vec2 uv2_interp;
 
+
+#ifdef USE_DEPTH
+uniform highp sampler2D source_depth; //texunit:1
+#endif
+
 #ifdef USE_GLOW
 
 uniform sampler2D glow_source;
@@ -79,7 +87,7 @@ uniform sampler2D glow_source;
 
 
 #if defined(USE_HDR) && defined(USE_GLOW_COPY)
-uniform highp float hdr_glow_treshold;
+uniform highp float hdr_glow_threshold;
 uniform highp float hdr_glow_scale;
 #endif
 
@@ -99,7 +107,7 @@ uniform vec3 bcs;
 #ifdef USE_GLOW_COPY
 
 uniform float bloom;
-uniform float bloom_treshold;
+uniform float bloom_threshold;
 
 #endif
 
@@ -140,23 +148,17 @@ uniform float custom_alpha;
 void main() {
 
 	//vec4 color = color_interp;
-#ifdef USE_HIGHP_SOURCE
 
-#ifdef USE_CUBEMAP
+
+#ifdef USE_ARRAY
+	highp vec4 color = textureLod( source,  vec3(uv_interp,0.0),0.0 );
+#elif defined(USE_CUBEMAP)
 	highp vec4 color = textureCube( source_cube,  normalize(cube_interp) );
 
 #else
 	highp vec4 color = texture2D( source,  uv_interp );
 #endif
 
-#else
-
-#ifdef USE_CUBEMAP
-	vec4 color = textureCube( source_cube,  normalize(cube_interp) );
-
-#else
-	vec4 color = texture2D( source,  uv_interp );
-#endif
 
 
 #endif
@@ -372,11 +374,11 @@ void main() {
 
 #ifdef USE_GLOW_COPY
 
-	highp vec3 glowcol = color.rgb*color.a+step(bloom_treshold,dot(vec3(0.3333,0.3333,0.3333),color.rgb))*bloom*color.rgb;
+	highp vec3 glowcol = color.rgb*color.a+step(bloom_threshold,dot(vec3(0.3333,0.3333,0.3333),color.rgb))*bloom*color.rgb;
 
 #ifdef USE_HDR
 	highp float collum = max(color.r,max(color.g,color.b));
-	glowcol+=color.rgb*max(collum-hdr_glow_treshold,0.0)*hdr_glow_scale;
+	glowcol+=color.rgb*max(collum-hdr_glow_threshold,0.0)*hdr_glow_scale;
 #endif
 	color.rgb=glowcol;
 	color.a=0.0;
@@ -498,7 +500,7 @@ void main() {
 
 	//lum_accum=exp(lum_accum);
 
-#ifdef USE_8BIT_HDR	
+#ifdef USE_8BIT_HDR
 
 	highp float vd_lum = dot(texture2D( source_vd_lum, vec2(0.0) ), _multcv  );
 	lum_accum = clamp( vd_lum + (lum_accum-vd_lum)*hdr_time_delta*hdr_exp_adj_speed,min_luminance*(1.0/LUM_RANGE),max_luminance*(1.0/LUM_RANGE));
@@ -547,5 +549,9 @@ void main() {
 
 
         gl_FragColor = color;
-}
 
+#ifdef USE_DEPTH
+	gl_FragDepth = texture(source_depth,uv_interp).r;
+#endif
+
+}
